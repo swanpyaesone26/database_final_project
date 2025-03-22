@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Online Shop</title>
+    <link rel="stylesheet" href="{% static 'main.css' %}">
+</head>
+<body>
+    <nav class="category-nav">
+        <ul id="category-list">
+            <li><button class="active" data-category="all">All Products</button></li>
+            <!-- Categories will be dynamically inserted here -->
+        </ul>
+    </nav>
+
+    <div class="shop-container">
+        <div class="products-section">
+            <div id="products-grid" class="products-grid">
+                <!-- Products will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <aside>
+            <!-- Cart Section -->
+            <div id="cart">
+                <h2>Shopping Cart</h2>
+                <ul id="cart-items">
+                    <!-- Cart items will be dynamically inserted here -->
+                </ul>
+                <div class="cart-total">
+                    <span>Total:</span>
+                    <span>$<span id="total-price">0.00</span></span>
+                </div>
+
+                <!-- Payment Method Selection -->
+                <div class="form-group">
+                    <label for="payment-method">Payment Method</label>
+                    <select id="payment-method" class="form-control">
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="PayPal">PayPal</option>
+                        <option value="Banking">Banking</option>
+                    </select>
+                </div>
+
+                <button id="buy-button" class="add-to-cart">Checkout</button>
+            </div>
+
+            <!-- Voucher Section -->
+            <div id="voucher" style="display: none;">
+                <h2>Order Voucher</h2>
+                <p><strong>Order ID:</strong> <span id="voucher-order-id"></span></p>
+                <p><strong>Created Time:</strong> <span id="voucher-created-time"></span></p>
+                <p><strong>Total Price:</strong> $<span id="voucher-total-price"></span></p>
+                <h3>Items:</h3>
+                <ul id="voucher-items">
+                    <!-- Voucher items will be dynamically inserted here -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        let cart = [];
+        let currentCategory = 'all';
+        let productsData = [];
+    
+        // Function to get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+    
+        // Function to render categories
+        function renderCategories(categories) {
+            const categoryList = document.getElementById('category-list');
+            categories.forEach(category => {
+                const li = document.createElement('li');
+                const button = document.createElement('button');
+                button.textContent = category.category.category_name;
+                button.dataset.category = category.category.category_id;
+                button.addEventListener('click', () => filterByCategory(category.category.category_id));
+                li.appendChild(button);
+                categoryList.appendChild(li);
+            });
+        }
+    
+        // Function to filter products by category
+        function filterByCategory(categoryId) {
+            currentCategory = categoryId;
+            document.querySelectorAll('.category-nav button').forEach(btn => {
+                btn.classList.remove('active');
+                if ((categoryId === 'all' && btn.dataset.category === 'all') ||
+                    (btn.dataset.category === categoryId.toString())) {
+                    btn.classList.add('active');
+                }
+            });
+    
+            renderProducts(productsData);
+        }
+    
+        // Function to render products
+        function renderProducts(data) {
+            const productsGrid = document.getElementById('products-grid');
+            productsGrid.innerHTML = '';
+    
+            data.forEach(category => {
+                if (currentCategory === 'all' || category.category.category_id === parseInt(currentCategory)) {
+                    category.products.forEach(product => {
+                        const productCard = document.createElement('div');
+                        productCard.className = 'product-card';
+                        productCard.innerHTML = `
+                            <div class="product-info">
+                                <h3 class="product-name">${product.product_name}</h3>
+                                <p class="product-price">$${parseFloat(product.price).toFixed(2)}</p>
+                                <button class="add-to-cart" onclick="addToCart(${product.product_id}, '${product.product_name}', ${product.price})">
+                                    Add to Cart
+                                </button>
+                            </div>
+                        `;
+                        productsGrid.appendChild(productCard);
+                    });
+                }
+            });
+        }
+    
+        // Function to add a product to the cart
+        function addToCart(productId, productName, price) {
+            const existingItem = cart.find(item => item.product_id === productId);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({ product_id: productId, product_name: productName, price: price, quantity: 1 });
+            }
+            updateCartDisplay();
+        }
+    
+        // Function to update the cart display
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cart-items');
+            const totalPriceElement = document.getElementById('total-price');
+            let totalPrice = 0;
+    
+            cartItems.innerHTML = '';
+            cart.forEach(item => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>${item.product_name} × ${item.quantity}</span>
+                    <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                `;
+                cartItems.appendChild(li);
+                totalPrice += item.price * item.quantity;
+            });
+    
+            totalPriceElement.textContent = totalPrice.toFixed(2);
+        }
+    
+        // Function to display the voucher
+        function displayVoucher(voucher) {
+            const voucherSection = document.getElementById('voucher');
+            document.getElementById('voucher-order-id').textContent = voucher.order_id;
+            document.getElementById('voucher-created-time').textContent = voucher.created_time;
+            document.getElementById('voucher-total-price').textContent = parseFloat(voucher.total_price).toFixed(2);
+    
+            const voucherItems = document.getElementById('voucher-items');
+            voucherItems.innerHTML = '';
+            voucher.items.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item.product_name} - Quantity: ${item.quantity}, Price: $${item.price.toFixed(2)}`;
+                voucherItems.appendChild(li);
+            });
+    
+            voucherSection.style.display = 'block';
+        }
+    
+        // Handle Buy button click
+        document.getElementById('buy-button').addEventListener('click', function() {
+            if (cart.length === 0) {
+                alert('Your cart is empty. Please add products before checking out.');
+                return;
+            }
+    
+            const paymentMethod = document.getElementById('payment-method').value;
+            const orderData = {
+                cart_items: cart.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    price: item.price // Ensure price is included!
+                })),
+                payment_method: paymentMethod,
+                total_price: parseFloat(document.getElementById('total-price').textContent) // Ensure total price is sent
+            };
+    
+            fetch('/api/create-order/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken // Include CSRF token
+                },
+                body: JSON.stringify(orderData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errData => {
+                        throw new Error(errData.error || 'Network response was not ok');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    alert(data.error); // Show error message if any
+                    return;
+                }
+                displayVoucher(data.voucher); // Only proceed if voucher exists
+                cart = [];
+                updateCartDisplay();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(error.message || 'Failed to create order. Please try again.');
+            });
+        });
+    
+        // Fetch and display products
+        fetch('/api/products/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load products');
+                }
+                return response.json();
+            })
+            .then(data => {
+                productsData = data;
+                renderCategories(data);
+                renderProducts(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to load products. Please try again.');
+            });
+    </script>
+</body>
+</html>

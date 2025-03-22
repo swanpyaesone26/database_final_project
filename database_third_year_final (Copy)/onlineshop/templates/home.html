@@ -1,0 +1,210 @@
+<!-- home.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Registration</title>
+    <link rel="stylesheet" href="{% static 'main.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Create Your Account</h1>
+        <form id="registrationForm">
+            <div class="form-row">
+                <!-- Name -->
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <!-- Phone Number -->
+                <div class="form-group">
+                    <label for="phone_number">Phone Number</label>
+                    <input type="tel" id="phone_number" name="phone_number" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <!-- Country Dropdown -->
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    <select id="country" name="country" required>
+                        <option value="">Select Country</option>
+                    </select>
+                </div>
+
+                <!-- City Dropdown -->
+                <div class="form-group">
+                    <label for="city">City</label>
+                    <select id="city" name="city" required disabled>
+                        <option value="">Select City</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <!-- District Dropdown -->
+                <div class="form-group">
+                    <label for="district">District</label>
+                    <select id="district" name="district" required disabled>
+                        <option value="">Select District</option>
+                    </select>
+                </div>
+
+                <!-- Postcode Dropdown -->
+                <div class="form-group">
+                    <label for="postcode">Postcode</label>
+                    <select id="postcode" name="postcode" required disabled>
+                        <option value="">Select Postcode</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Address Input -->
+            <div class="form-group">
+                <label for="address">Address</label>
+                <textarea id="address" name="address" required></textarea>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit">Create Account</button>
+        </form>
+    </div>
+
+    <script>
+        // Fetch Countries
+        fetch('/api/countries/')
+            .then(response => response.json())
+            .then(data => {
+                const countrySelect = document.getElementById('country');
+                data.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country.country_id;
+                    option.textContent = country.country_name;
+                    countrySelect.appendChild(option);
+                });
+            });
+
+        // Fetch Cities based on Country
+        document.getElementById('country').addEventListener('change', function() {
+            const countryId = this.value;
+            const citySelect = document.getElementById('city');
+            citySelect.innerHTML = '<option value="">Select City</option>';
+            citySelect.disabled = !countryId;
+
+            if (countryId) {
+                fetch(`/api/cities/${countryId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(city => {
+                            const option = document.createElement('option');
+                            option.value = city.city_id;
+                            option.textContent = city.city_name;
+                            citySelect.appendChild(option);
+                        });
+                    });
+            }
+        });
+
+        // Fetch Districts based on City
+        document.getElementById('city').addEventListener('change', function() {
+            const cityId = this.value;
+            const districtSelect = document.getElementById('district');
+            districtSelect.innerHTML = '<option value="">Select District</option>';
+            districtSelect.disabled = !cityId;
+
+            if (cityId) {
+                fetch(`/api/districts/${cityId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district.district_id;
+                            option.textContent = district.district_name;
+                            districtSelect.appendChild(option);
+                        });
+                    });
+            }
+        });
+
+        // Fetch Postcodes based on District
+        document.getElementById('district').addEventListener('change', function() {
+            const districtId = this.value;
+            const postcodeSelect = document.getElementById('postcode');
+            postcodeSelect.innerHTML = '<option value="">Select Postcode</option>';
+            postcodeSelect.disabled = !districtId;
+
+            if (districtId) {
+                fetch(`/api/postcodes/${districtId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(postcode => {
+                            const option = document.createElement('option');
+                            option.value = postcode.postcode_id;
+                            option.textContent = postcode.postcode;
+                            postcodeSelect.appendChild(option);
+                        });
+                    });
+            }
+        });
+
+        // Handle Form Submission
+        document.getElementById('registrationForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                password: formData.get('password'),
+                phone_number: formData.get('phone_number'),
+                address: formData.get('address'),  // User input for address
+                country: formData.get('country'),  // Selected country ID
+                city: formData.get('city'),        // Selected city ID
+                district: formData.get('district'), // Selected district ID
+                postcode: formData.get('postcode') // Selected postcode ID
+            };
+
+            console.log('Sending data:', data);  // Log the data being sent
+
+            fetch('/api/register/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(JSON.stringify(err));
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Registration successful!');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Registration failed: ' + error.message);
+            });
+        });
+    </script>
+</body>
+</html>
